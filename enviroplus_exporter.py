@@ -54,20 +54,26 @@ PRESSURE = Gauge('pressure','Pressure measured (hPa)')
 HUMIDITY = Gauge('humidity','Relative humidity measured (%)')
 OXIDISING = Gauge('oxidising','Mostly nitrogen dioxide but could include NO and Hydrogen (Ohms)')
 REDUCING = Gauge('reducing', 'Mostly carbon monoxide but could include H2S, Ammonia, Ethanol, Hydrogen, Methane, Propane, Iso-butane (Ohms)')
-NH3 = Gauge('NH3', 'mostly Ammonia but could also include Hydrogen, Ethanol, Propane, Iso-butane (Ohms)') 
+NH3 = Gauge('NH3', 'mostly Ammonia but could also include Hydrogen, Ethanol, Propane, Iso-butane (Ohms)')
 LUX = Gauge('lux', 'current ambient light level (lux)')
 PROXIMITY = Gauge('proximity', 'proximity, with larger numbers being closer proximity and vice versa')
 PM1 = Gauge('PM1', 'Particulate Matter of diameter less than 1 micron. Measured in micrograms per cubic metre (ug/m3)')
 PM25 = Gauge('PM25', 'Particulate Matter of diameter less than 2.5 microns. Measured in micrograms per cubic metre (ug/m3)')
 PM10 = Gauge('PM10', 'Particulate Matter of diameter less than 10 microns. Measured in micrograms per cubic metre (ug/m3)')
 
-OXIDISING_HIST = Histogram('oxidising_measurements', 'Histogram of oxidising measurements', buckets=(0, 10000, 15000, 20000, 25000, 30000, 35000, 40000, 45000, 50000, 55000, 60000, 65000, 70000, 75000, 80000, 85000, 90000, 100000))
-REDUCING_HIST = Histogram('reducing_measurements', 'Histogram of reducing measurements', buckets=(0, 100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000, 1100000, 1200000, 1300000, 1400000, 1500000))
-NH3_HIST = Histogram('nh3_measurements', 'Histogram of nh3 measurements', buckets=(0, 10000, 110000, 210000, 310000, 410000, 510000, 610000, 710000, 810000, 910000, 1010000, 1110000, 1210000, 1310000, 1410000, 1510000, 1610000, 1710000, 1810000, 1910000, 2000000))
+OXIDISING_HIST = Histogram('oxidising_measurements', 'Histogram of oxidising measurements',
+    buckets=(0, 10000, 15000, 20000, 25000, 30000, 35000, 40000, 45000, 50000, 55000, 60000, 65000, 70000, 75000, 80000, 85000, 90000, 100000))
+REDUCING_HIST = Histogram('reducing_measurements', 'Histogram of reducing measurements',
+    buckets=(0, 100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000, 1100000, 1200000, 1300000, 1400000, 1500000))
+NH3_HIST = Histogram('nh3_measurements', 'Histogram of nh3 measurements',
+    buckets=(0, 10000, 110000, 210000, 310000, 410000, 510000, 610000, 710000, 810000, 910000, 1010000, 1110000, 1210000, 1310000, 1410000, 1510000, 1610000, 1710000, 1810000, 1910000, 2000000))
 
-PM1_HIST = Histogram('pm1_measurements', 'Histogram of Particulate Matter of diameter less than 1 micron measurements', buckets=(0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100))
-PM25_HIST = Histogram('pm25_measurements', 'Histogram of Particulate Matter of diameter less than 2.5 micron measurements', buckets=(0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100))
-PM10_HIST = Histogram('pm10_measurements', 'Histogram of Particulate Matter of diameter less than 10 micron measurements', buckets=(0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100))
+PM1_HIST = Histogram('pm1_measurements', 'Histogram of Particulate Matter of diameter less than 1 micron measurements',
+    buckets=(0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100))
+PM25_HIST = Histogram('pm25_measurements', 'Histogram of Particulate Matter of diameter less than 2.5 micron measurements',
+    buckets=(0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100))
+PM10_HIST = Histogram('pm10_measurements', 'Histogram of Particulate Matter of diameter less than 10 micron measurements',
+    buckets=(0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100))
 
 # Setup InfluxDB
 # You can generate an InfluxDB Token from the Tokens Tab in the InfluxDB Cloud UI
@@ -83,14 +89,14 @@ influxdb_api = influxdb_client.write_api(write_options=SYNCHRONOUS)
 # Setup Luftdaten
 LUFTDATEN_TIME_BETWEEN_POSTS = int(os.getenv('LUFTDATEN_TIME_BETWEEN_POSTS', '30'))
 
-# Sometimes the sensors can't be read. Resetting the i2c 
+# Sometimes the sensors can't be read. Resetting the i2c
 def reset_i2c():
     subprocess.run(['i2cdetect', '-y', '1'])
     time.sleep(2)
 
 
-# Get the temperature of the CPU for compensation
 def get_cpu_temperature():
+    """Get the temperature of the CPU for compensation"""
     with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
         temp = f.read()
         temp = int(temp) / 1000.0
@@ -152,11 +158,11 @@ def get_gas():
 def get_light():
     """Get all light readings"""
     try:
-       lux = ltr559.get_lux()
-       prox = ltr559.get_proximity()
+        lux = ltr559.get_lux()
+        prox = ltr559.get_proximity()
 
-       LUX.set(lux)
-       PROXIMITY.set(prox)
+        LUX.set(lux)
+        PROXIMITY.set(prox)
     except IOError:
         logging.error("Could not get lux and proximity readings. Resetting i2c.")
         reset_i2c()
@@ -214,8 +220,11 @@ def post_to_influxdb():
             logging.warning('Exception sending to InfluxDB: {}'.format(exception))
 
 def post_to_luftdaten():
-    """Post relevant sensor data to luftdaten.info"""
-    """Code from: https://github.com/sepulworld/balena-environ-plus"""
+    """
+    Post relevant sensor data to luftdaten.info
+
+    Code from: https://github.com/sepulworld/balena-environ-plus
+    """
     LUFTDATEN_SENSOR_UID = 'raspi-' + get_serial_number()
     while True:
         time.sleep(LUFTDATEN_TIME_BETWEEN_POSTS)
@@ -232,11 +241,10 @@ def post_to_luftdaten():
             response_pin_1 = requests.post('https://api.luftdaten.info/v1/push-sensor-data/',
                 json={
                     "software_version": "enviro-plus 0.0.1",
-                    "sensordatavalues": [{"value_type": key, "value": val} for
-                                        key, val in pm_values.items()]
+                    "sensordatavalues": [{"value_type": key, "value": val} for key, val in pm_values.items()]
                 },
                 headers={
-                    "X-PIN":    "1",
+                    "X-PIN": "1",
                     "X-Sensor": LUFTDATEN_SENSOR_UID,
                     "Content-Type": "application/json",
                     "cache-control": "no-cache"
@@ -246,11 +254,10 @@ def post_to_luftdaten():
             response_pin_11 = requests.post('https://api.luftdaten.info/v1/push-sensor-data/',
                     json={
                         "software_version": "enviro-plus 0.0.1",
-                        "sensordatavalues": [{"value_type": key, "value": val} for
-                                            key, val in temperature_values.items()]
+                        "sensordatavalues": [{"value_type": key, "value": val} for key, val in temperature_values.items()]
                     },
                     headers={
-                        "X-PIN":    "11",
+                        "X-PIN": "11",
                         "X-Sensor": LUFTDATEN_SENSOR_UID,
                         "Content-Type": "application/json",
                         "cache-control": "no-cache"
@@ -282,13 +289,20 @@ def str_to_bool(value):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-b", "--bind", metavar='ADDRESS', default='0.0.0.0', help="Specify alternate bind address [default: 0.0.0.0]")
-    parser.add_argument("-p", "--port", metavar='PORT', default=8000, type=int, help="Specify alternate port [default: 8000]")
-    parser.add_argument("-f", "--factor", metavar='FACTOR', type=float, help="The compensation factor to get better temperature results when the Enviro+ pHAT is too close to the Raspberry Pi board")
-    parser.add_argument("-e", "--enviro", metavar='ENVIRO', type=str_to_bool, help="Device is an Enviro (not Enviro+) so don't fetch data from gas and particulate sensors as they don't exist")
-    parser.add_argument("-d", "--debug", metavar='DEBUG', type=str_to_bool, help="Turns on more verbose logging, showing sensor output and post responses [default: false]")
-    parser.add_argument("-i", "--influxdb", metavar='INFLUXDB', type=str_to_bool, default='false', help="Post sensor data to InfluxDB [default: false]")
-    parser.add_argument("-l", "--luftdaten", metavar='LUFTDATEN', type=str_to_bool, default='false', help="Post sensor data to Luftdaten [default: false]")
+    parser.add_argument("-b", "--bind", metavar='ADDRESS', default='0.0.0.0',
+        help="Specify alternate bind address [default: 0.0.0.0]")
+    parser.add_argument("-p", "--port", metavar='PORT', default=8000, type=int,
+        help="Specify alternate port [default: 8000]")
+    parser.add_argument("-f", "--factor", metavar='FACTOR', type=float,
+        help="The compensation factor to get better temperature results when the Enviro+ pHAT is too close to the Raspberry Pi board")
+    parser.add_argument("-e", "--enviro", metavar='ENVIRO', type=str_to_bool,
+        help="Device is an Enviro (not Enviro+) so don't fetch data from gas and particulate sensors as they don't exist")
+    parser.add_argument("-d", "--debug", metavar='DEBUG', type=str_to_bool,
+        help="Turns on more verbose logging, showing sensor output and post responses [default: false]")
+    parser.add_argument("-i", "--influxdb", metavar='INFLUXDB', type=str_to_bool, default='false',
+        help="Post sensor data to InfluxDB [default: false]")
+    parser.add_argument("-l", "--luftdaten", metavar='LUFTDATEN', type=str_to_bool, default='false',
+        help="Post sensor data to Luftdaten [default: false]")
     args = parser.parse_args()
 
     # Start up the server to expose the metrics.
