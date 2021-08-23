@@ -6,7 +6,7 @@ import argparse
 import subprocess
 from threading import Thread
 
-from prometheus_client import start_http_server, Gauge, Histogram
+from prometheus_client import start_http_server, Counter, Gauge, Histogram
 
 from bme280 import BME280
 from enviroplus import gas
@@ -47,6 +47,7 @@ PM1_HIST = Histogram('enviro_pm_1u_hist', 'Histogram of Particulate Matter of di
 PM25_HIST = Histogram('enviro_pm_2u5_hist', 'Histogram of Particulate Matter of diameter less than 2.5 microns', buckets=tuple(range(5, 100 + 1, 5)))
 PM10_HIST = Histogram('enviro_pm_10u_hist', 'Histogram of Particulate Matter of diameter less than 10 microns', buckets=tuple(range(5, 100 + 1, 5)))
 
+LOOP_UPDATE_TIME = Counter('enviro_update_time_seconds', 'Cumulative time spent in sensor values update.')
 
 # Sometimes the sensors can't be read. Resetting the i2c
 def reset_i2c():
@@ -344,10 +345,13 @@ if __name__ == '__main__':
     #   Investigate reading sensor values on demand after http Prometheus request and/or posting right when sensor values are acquired.
     rate_limiter = create_loop_rate_limiter(args.update_period)
     while True:
+        update_start = rate_limiter.now()
         update_weather_sensor(args.temperature_factor)
         update_light_sensor()
         if not args.enviro:
             update_gas_sensor()
             update_particulate_sensor()
         logging.debug('Sensor data: %s', collect_all_data())
-        rate_limiter.end_sleep()
+        update_end = rate_limiter.iteration_end()
+        LOOP_UPDATE_TIME.inc(update_end - update_start)
+        rate_limiter.sleep()
