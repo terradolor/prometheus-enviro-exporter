@@ -215,7 +215,7 @@ def post_loop_to_influxdb(influxdb_api, time_between_posts, bucket, sensor_locat
     while True:
         time.sleep(time_between_posts)
         data_points = [
-            Point('enviroplus').tag('location', sensor_location).field(name, value)
+            Point('enviro').tag('location', sensor_location).field(name, value)
                 for name, value in collect_all_data().items()
         ]
         try:
@@ -236,7 +236,7 @@ def post_loop_to_luftdaten(sensor_uid, time_between_posts):
     def post_pin_values(pin, values):
         return requests.post('https://api.luftdaten.info/v1/push-sensor-data/',
             json={
-                "software_version": "enviro-plus 0.0.1",
+                "software_version": "prometheus-enviro-exporter 0.0.1",
                 "sensordatavalues": [{"value_type": key, "value": val} for key, val in values.items()]
             },
             headers={
@@ -286,14 +286,14 @@ def str_to_bool(value):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Expose readings from the Pimoroni Enviro or Enviro+ sensor in Prometheus format",
+    parser = argparse.ArgumentParser(description="Prometheus exporter for Pimoroni Enviro boards",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-b", "--bind", metavar='ADDRESS', default='0.0.0.0',
         help="Specify alternate bind address")
     parser.add_argument("-p", "--port", metavar='PORT', default=8000, type=int,
         help="Specify alternate port")
     parser.add_argument("-e", "--enviro", metavar='ENVIRO', type=str_to_bool, default='false',
-        help="Device is an Enviro (not Enviro+) so don't fetch data from gas and particulate sensors as they don't exist")
+        help="Device is an Enviro (not Enviro+) so don't fetch data from gas and PM sensors as they don't exist")
     parser.add_argument("-f", "--temperature-factor", metavar='FACTOR', type=float,
         help="The compensation factor to get better temperature results when the Enviro+ is too close to the Raspberry Pi board. " +
         "Value should be from 0 (no correction) to almost 1 (max heat transfer from CPU and max correction).")
@@ -310,7 +310,7 @@ if __name__ == '__main__':
     logging.basicConfig(
         format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s',
         level=logging.INFO,
-        handlers=[logging.FileHandler("enviroplus_exporter.log"), logging.StreamHandler()],
+        handlers=[logging.FileHandler("prometheus-enviro-exporter.log"), logging.StreamHandler()],
         datefmt='%Y-%m-%d %H:%M:%S'
     )
     if args.debug or os.getenv('DEBUG', 'false') == 'true':
