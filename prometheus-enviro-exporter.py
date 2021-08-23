@@ -34,6 +34,7 @@ PRESSURE = Gauge('enviro_pressure_pascals','Pressure')
 HUMIDITY = Gauge('enviro_relative_humidity','Relative humidity')
 LIGHT = Gauge('enviro_light_lux', 'Ambient light level')
 PROXIMITY = Gauge('enviro_proximity_raw', 'Raw proximity value, with larger numbers being closer and vice versa')
+# TODO don't report gas and PM on http prometheus exporter if we are in Enviro device mode
 GAS_RED = Gauge('enviro_gas_red_ohms', 'Gas RED sensor: CO, H2S, Ethanol, Hydrogen, Ammonia, Methane, Propane, Iso-butane')
 GAS_OX = Gauge('enviro_gas_ox_ohms','Gas OX sensor: NO2, NO, Hydrogen')
 GAS_NH3 = Gauge('enviro_gas_nh3_ohms', 'Gas NH3 sensor: Hydrogen, Ethanol, Amonia, Propane, Iso-butane')
@@ -64,7 +65,7 @@ def get_cpu_temperature():
         temp = int(temp) / 1000.0
     return temp
 
-def update_weather_sensor(temperature_factor):
+def update_weather_sensor(temperature_factor, values):
     """Update values from the weather sensor"""
     try:
         bme280.update_sensor()  # Note: update once and then read instance properties (avoid multiple updates by individual get_... calls)
@@ -87,58 +88,47 @@ def update_weather_sensor(temperature_factor):
             # so ambient temperature is calculated from measured value using ...
             temperature = (temperature - avg_cpu_temp * temperature_factor) / (1 - temperature_factor)
 
-        TEMPERATURE.set(temperature)
-        PRESSURE.set(pressure * 100)  # hPa to Pa
-        HUMIDITY.set(humidity / 100)  # percentage to 0-1 ratio
+        values['temperature_celsius'] = temperature
+        values['pressure_pascals'] = pressure * 100  # hPa to Pa
+        values['relative_humidity'] = humidity / 100  # percentage to 0-1 ratio
         return True
     except IOError:
         logging.error("Could not get BME280 readings. Resetting i2c.")
         reset_i2c()
     return False
 
-def update_light_sensor():
+def update_light_sensor(values):
     """Update all light sensor readings"""
     try:
         ltr559.update_sensor()
-        light = ltr559.get_lux(passive=True)
-        proximity = ltr559.get_proximity(passive=True)
-        LIGHT.set(light)
-        PROXIMITY.set(proximity)
+        values['light_lux'] = ltr559.get_lux(passive=True)
+        values['proximity_raw'] = ltr559.get_proximity(passive=True)
         return True
     except IOError:
         logging.error("Could not get light and proximity readings. Resetting i2c.")
         reset_i2c()
     return False
 
-def update_gas_sensor():
+def update_gas_sensor(values):
     """Update all gas sensor readings"""
     try:
         readings = gas.read_all()
-        GAS_RED.set(readings.reducing)
-        GAS_RED_HIST.observe(readings.reducing)
-        GAS_OX.set(readings.oxidising)
-        GAS_OX_HIST.observe(readings.oxidising)
-        GAS_NH3.set(readings.nh3)
-        GAS_NH3_HIST.observe(readings.nh3)
+        values['gas_red_ohms'] = readings.reducing
+        values['gas_ox_ohms'] = readings.oxidising
+        values['gas_nh3_ohms'] = readings.nh3
         return True
     except IOError:
         logging.error("Could not get gas readings. Resetting i2c.")
         reset_i2c()
     return False
 
-def update_particulate_sensor():
+def update_particulate_sensor(values):
     """Update the particulate matter sensor readings"""
     try:
         pms_data = pms5003.read()
-        pm010 = pms_data.pm_ug_per_m3(1.0)
-        pm025 = pms_data.pm_ug_per_m3(2.5)
-        pm100 = pms_data.pm_ug_per_m3(10)
-        PM1.set(pm010)
-        PM25.set(pm025)
-        PM10.set(pm100)
-        PM1_HIST.observe(pm010)
-        PM25_HIST.observe(pm025 - pm010)
-        PM10_HIST.observe(pm100 - pm025)
+        values['pm_1u'] = pms_data.pm_ug_per_m3(1.0)
+        values['pm_2u5'] = pms_data.pm_ug_per_m3(2.5)
+        values['pm_10u'] = pms_data.pm_ug_per_m3(10)
         return True
     except pmsReadTimeoutError:
         logging.error("Failed to read PMS5003")
@@ -364,8 +354,33 @@ if __name__ == '__main__':
     rate_limiter = create_loop_rate_limiter(args.update_period)
     while True:
         update_start = rate_limiter.now()
-        if not all(update_fn() for update_fn in sensor_update_functions):  # update all sensor values and collect error status of this iteration
+
+        values = {}
+        if not all(update_fn(values) for update_fn in sensor_update_functions):  # update all sensor values and collect error status of this iteration
             ERROR_COUNTER.inc()
+
+        # TODO move this block to some Prometheus post function or object
+        # TODO update metric values atomically (report on http whole set, not mix old/new)
+        # (create own registry serving one defined values dict, see https://github.com/prometheus/client_python#custom-collectors)
+        TEMPERATURE.set(values['temperature_celsius'])
+        PRESSURE.set(values['pressure_pascals'])
+        HUMIDITY.set(values['relative_humidity'])
+        LIGHT.set(values['light_lux'])
+        PROXIMITY.set(values['proximity_raw'])
+        if not args.enviro:
+            GAS_RED.set(values['gas_red_ohms'])
+            GAS_OX.set(values['gas_ox_ohms'])
+            GAS_NH3.set(values['gas_nh3_ohms'])
+            GAS_RED_HIST.observe(values['gas_red_ohms'])
+            GAS_OX_HIST.observe(values['gas_ox_ohms'])
+            GAS_NH3_HIST.observe(values['gas_nh3_ohms'])
+            PM1.set(values['pm_1u'])
+            PM25.set(values['pm_2u5'])
+            PM10.set(values['pm_10u'])
+            PM1_HIST.observe(values['pm_1u'])
+            PM25_HIST.observe(values['pm_2u5'] - values['pm_1u'])
+            PM10_HIST.observe(values['pm_10u'] - values['pm_2u5'])
+
         logging.debug('Sensor data: %s', collect_all_data())
         update_end = rate_limiter.iteration_end()
         LOOP_UPDATE_TIME.inc(update_end - update_start)
