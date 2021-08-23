@@ -24,13 +24,6 @@ try:
 except ImportError:
     import ltr559
 
-logging.basicConfig(
-    format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s',
-    level=logging.INFO,
-    handlers=[logging.FileHandler("enviroplus_exporter.log"),
-              logging.StreamHandler()],
-    datefmt='%Y-%m-%d %H:%M:%S')
-
 bus = SMBus(1)
 bme280 = BME280(i2c_dev=bus)
 pms5003 = PMS5003()
@@ -244,6 +237,12 @@ if __name__ == '__main__':
         help="Post sensor data to Luftdaten [default: false]")
     args = parser.parse_args()
 
+    logging.basicConfig(
+        format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s',
+        level=logging.INFO,
+        handlers=[logging.FileHandler("enviroplus_exporter.log"), logging.StreamHandler()],
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
     if args.debug or os.getenv('DEBUG', 'false') == 'true':
         logging.getLogger().setLevel(logging.DEBUG)
 
