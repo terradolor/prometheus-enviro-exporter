@@ -77,20 +77,19 @@
 
 * [Pimoroni/enviroplus-python](https://github.com/pimoroni/enviroplus-python)
 * [Prometheus](https://prometheus.io/)
-* [Grafana](https://grafana.com/)
 
 
 <!-- GETTING STARTED -->
 ## Getting Started
 
-To get the prometheus enviroplus-exporter up and running I'm assuming you already have Prometheus and Grafana running somewhere. 
+To get the prometheus enviroplus-exporter up and running I'm assuming you already have Prometheus running somewhere.
 ***Note***: I wouldn't recommend running Prometheus on a Raspberry Pi (using a local SD card) as this could drastically reduce the lifetime of the SD card as samples are written quite often to disk.
 
 ### Prerequisites
 
 - Python3
 - To run the enviroplus-exporter you need to have the enviroplus-python library by Pimoroni installed:
- 
+
 ### One-line (Installs enviroplus-python library from GitHub)
 
 ```sh
@@ -101,7 +100,7 @@ curl -sSL https://get.pimoroni.com/enviroplus | bash
 
 ### Installation
 We're going to run the enviroplus-exporter as the user ```pi``` in the directory ```/usr/src/```. Adjust this as you wish.
- 
+
 1.Clone the enviroplus-exporter repository
 ```sh
 cd
@@ -161,7 +160,8 @@ If you are using an Enviro (not Enviro+) add `--enviro=true` to the command line
 <!-- USAGE EXAMPLES -->
 ## Usage
 
-So now we've setup the Prometheus enviroplus-exporter we can start scraping this endpoint from our Prometheus server and get a nice dashboard using Grafana.  
+So now we've setup the Prometheus enviroplus-exporter we can start scraping this endpoint from our Prometheus server and visualize
+it somewhere, e.g. in Grafana.
 
 ### Prometheus
 
@@ -211,33 +211,18 @@ scrape_configs:
 
     # If environmentplus-exporter is installed, grab stats about the local
     # machine by default.
-  - job_name: environment
+  - job_name: enviro
     static_configs:
     - targets: ['localhost:8000']
       labels:
-        group: 'environment'
         location: 'Amsterdam'
-        
-    - targets: ['newyork.example.com:8001']
+
+    - targets: ['newyork.example.com:8000']
       labels:
-        group: 'environment'
         location: 'New York'
-``` 
+```
 
-I added two labels to the targets ```group: environment``` and ```location: SomeLocation```. The Grafana dashboard uses these labels to distinguish the various locations.
-
-### Grafana
-
-I published the dashboard on [grafana.com](https://grafana.com/grafana/dashboards/11605). You can import this dashboard using the the ID 11605. Instructions for importing the dashboard can be found [here](https://grafana.com/docs/grafana/latest/reference/export_import/).
-
-<p align="center">
-  <a href="images/grafana_dashboard_1.png">
-    <img src="images/grafana_dashboard_1.png" alt="Grafana Dashboard 1" width="480" height="280">
-  </a>
-  <a href="images/grafana_dashboard_2.png">
-    <img src="images/grafana_dashboard_2.png" alt="Grafana Dashboard 2" width="480" height="280">
-  </a>
-</p>
+Optional label ```location: SomeLocation``` might be used to do distinguish individual sensors.
 
 ### Docker
 

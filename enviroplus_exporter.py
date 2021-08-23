@@ -36,7 +36,7 @@ logging.basicConfig(
               logging.StreamHandler()],
     datefmt='%Y-%m-%d %H:%M:%S')
 
-logging.info("""enviroplus_exporter.py - Expose readings from the Enviro+ sensor by Pimoroni in Prometheus format
+logging.info("""enviroplus_exporter.py - Expose readings from the Pimoroni Enviro or Enviro+ sensor in Prometheus format
 
 Press Ctrl+C to exit!
 
@@ -48,30 +48,30 @@ bus = SMBus(1)
 bme280 = BME280(i2c_dev=bus)
 pms5003 = PMS5003()
 
-TEMPERATURE = Gauge('temperature','Temperature measured (*C)')
-PRESSURE = Gauge('pressure','Pressure measured (hPa)')
-HUMIDITY = Gauge('humidity','Relative humidity measured (%)')
-OXIDISING = Gauge('oxidising','Mostly nitrogen dioxide but could include NO and Hydrogen (Ohms)')
-REDUCING = Gauge('reducing', 'Mostly carbon monoxide but could include H2S, Ammonia, Ethanol, Hydrogen, Methane, Propane, Iso-butane (Ohms)')
-NH3 = Gauge('NH3', 'mostly Ammonia but could also include Hydrogen, Ethanol, Propane, Iso-butane (Ohms)')
-LUX = Gauge('lux', 'current ambient light level (lux)')
-PROXIMITY = Gauge('proximity', 'proximity, with larger numbers being closer proximity and vice versa')
-PM1 = Gauge('PM1', 'Particulate Matter of diameter less than 1 micron. Measured in micrograms per cubic metre (ug/m3)')
-PM25 = Gauge('PM25', 'Particulate Matter of diameter less than 2.5 microns. Measured in micrograms per cubic metre (ug/m3)')
-PM10 = Gauge('PM10', 'Particulate Matter of diameter less than 10 microns. Measured in micrograms per cubic metre (ug/m3)')
+TEMPERATURE = Gauge('enviro_temperature_celsius','Temperature')
+PRESSURE = Gauge('enviro_pressure_pascals','Pressure')
+HUMIDITY = Gauge('enviro_relative_humidity','Relative humidity')
+LIGHT = Gauge('enviro_light_lux', 'Ambient light level')
+PROXIMITY = Gauge('enviro_proximity_raw', 'Raw proximity value, with larger numbers being closer and vice versa')
+GAS_RED = Gauge('enviro_gas_red_ohms', 'Gas RED sensor: CO, H2S, Ethanol, Hydrogen, Ammonia, Methane, Propane, Iso-butane')
+GAS_OX = Gauge('enviro_gas_ox_ohms','Gas OX sensor: NO2, NO, Hydrogen')
+GAS_NH3 = Gauge('enviro_gas_nh3_ohms', 'Gas NH3 sensor: Hydrogen, Ethanol, Amonia, Propane, Iso-butane')
+PM1 = Gauge('enviro_pm_1u', 'Particulate Matter of diameter less than 1 micron. Measured in micrograms per cubic metre (ug/m3)')
+PM25 = Gauge('enviro_pm_2u5', 'Particulate Matter of diameter less than 2.5 microns. Measured in micrograms per cubic metre (ug/m3)')
+PM10 = Gauge('enviro_pm_10u', 'Particulate Matter of diameter less than 10 microns. Measured in micrograms per cubic metre (ug/m3)')
 
-OXIDISING_HIST = Histogram('oxidising_measurements', 'Histogram of oxidising measurements',
-    buckets=(0, 10000, 15000, 20000, 25000, 30000, 35000, 40000, 45000, 50000, 55000, 60000, 65000, 70000, 75000, 80000, 85000, 90000, 100000))
-REDUCING_HIST = Histogram('reducing_measurements', 'Histogram of reducing measurements',
+GAS_RED_HIST = Histogram('enviro_gas_red_hist_ohms', 'Histogram of gas RED measurements',
     buckets=(0, 100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000, 1100000, 1200000, 1300000, 1400000, 1500000))
-NH3_HIST = Histogram('nh3_measurements', 'Histogram of nh3 measurements',
+GAS_OX_HIST = Histogram('enviro_gas_ox_hist_ohms', 'Histogram of gas OX measurements',
+    buckets=(0, 10000, 15000, 20000, 25000, 30000, 35000, 40000, 45000, 50000, 55000, 60000, 65000, 70000, 75000, 80000, 85000, 90000, 100000))
+GAS_NH3_HIST = Histogram('enviro_gas_nh3_hist_ohms', 'Histogram of gas NH3 measurements',
     buckets=(0, 10000, 110000, 210000, 310000, 410000, 510000, 610000, 710000, 810000, 910000, 1010000, 1110000, 1210000, 1310000, 1410000, 1510000, 1610000, 1710000, 1810000, 1910000, 2000000))
 
-PM1_HIST = Histogram('pm1_measurements', 'Histogram of Particulate Matter of diameter less than 1 micron measurements',
+PM1_HIST = Histogram('enviro_pm_1u_hist', 'Histogram of Particulate Matter of diameter less than 1 micron',
     buckets=(0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100))
-PM25_HIST = Histogram('pm25_measurements', 'Histogram of Particulate Matter of diameter less than 2.5 micron measurements',
+PM25_HIST = Histogram('enviro_pm_2u5_hist', 'Histogram of Particulate Matter of diameter less than 2.5 microns',
     buckets=(0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100))
-PM10_HIST = Histogram('pm10_measurements', 'Histogram of Particulate Matter of diameter less than 10 micron measurements',
+PM10_HIST = Histogram('enviro_pm_10u_hist', 'Histogram of Particulate Matter of diameter less than 10 microns',
     buckets=(0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100))
 
 # Setup InfluxDB
@@ -123,7 +123,7 @@ def get_pressure():
     """Get pressure from the weather sensor"""
     try:
         pressure = bme280.get_pressure()
-        PRESSURE.set(pressure)
+        PRESSURE.set(pressure * 100)  # hPa to Pa
     except IOError:
         logging.error("Could not get pressure readings. Resetting i2c.")
         reset_i2c()
@@ -132,7 +132,7 @@ def get_humidity():
     """Get humidity from the weather sensor"""
     try:
         humidity = bme280.get_humidity()
-        HUMIDITY.set(humidity)
+        HUMIDITY.set(humidity / 100)
     except IOError:
         logging.error("Could not get humidity readings. Resetting i2c.")
         reset_i2c()
@@ -142,14 +142,14 @@ def get_gas():
     try:
         readings = gas.read_all()
 
-        OXIDISING.set(readings.oxidising)
-        OXIDISING_HIST.observe(readings.oxidising)
+        GAS_OX.set(readings.oxidising)
+        GAS_OX_HIST.observe(readings.oxidising)
 
-        REDUCING.set(readings.reducing)
-        REDUCING_HIST.observe(readings.reducing)
+        GAS_RED.set(readings.reducing)
+        GAS_RED_HIST.observe(readings.reducing)
 
-        NH3.set(readings.nh3)
-        NH3_HIST.observe(readings.nh3)
+        GAS_NH3.set(readings.nh3)
+        GAS_NH3_HIST.observe(readings.nh3)
     except IOError:
         logging.error("Could not get gas readings. Resetting i2c.")
         reset_i2c()
@@ -160,7 +160,7 @@ def get_light():
         lux = ltr559.get_lux()
         prox = ltr559.get_proximity()
 
-        LUX.set(lux)
+        LIGHT.set(lux)
         PROXIMITY.set(prox)
     except IOError:
         logging.error("Could not get lux and proximity readings. Resetting i2c.")
@@ -190,11 +190,11 @@ def collect_all_data():
     sensor_data['temperature'] = TEMPERATURE.collect()[0].samples[0].value
     sensor_data['humidity'] = HUMIDITY.collect()[0].samples[0].value
     sensor_data['pressure'] = PRESSURE.collect()[0].samples[0].value
-    sensor_data['oxidising'] = OXIDISING.collect()[0].samples[0].value
-    sensor_data['reducing'] = REDUCING.collect()[0].samples[0].value
-    sensor_data['nh3'] = NH3.collect()[0].samples[0].value
-    sensor_data['lux'] = LUX.collect()[0].samples[0].value
+    sensor_data['light'] = LIGHT.collect()[0].samples[0].value
     sensor_data['proximity'] = PROXIMITY.collect()[0].samples[0].value
+    sensor_data['gas_ox'] = GAS_OX.collect()[0].samples[0].value
+    sensor_data['gas_red'] = GAS_RED.collect()[0].samples[0].value
+    sensor_data['gas_nh3'] = GAS_NH3.collect()[0].samples[0].value
     sensor_data['pm1'] = PM1.collect()[0].samples[0].value
     sensor_data['pm25'] = PM25.collect()[0].samples[0].value
     sensor_data['pm10'] = PM10.collect()[0].samples[0].value
@@ -232,8 +232,8 @@ def post_to_luftdaten():
         values["P2"] = sensor_data['pm25']
         values["P1"] = sensor_data['pm10']
         values["temperature"] = "{:.2f}".format(sensor_data['temperature'])
-        values["pressure"] = "{:.2f}".format(sensor_data['pressure'] * 100)
-        values["humidity"] = "{:.2f}".format(sensor_data['humidity'])
+        values["pressure"] = "{:.2f}".format(sensor_data['pressure'])
+        values["humidity"] = "{:.2f}".format(sensor_data['humidity'] * 100)
         pm_values = dict(i for i in values.items() if i[0].startswith('P'))
         temperature_values = dict(i for i in values.items() if not i[0].startswith('P'))
         try:
