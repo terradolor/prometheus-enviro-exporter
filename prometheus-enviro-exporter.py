@@ -378,8 +378,8 @@ if __name__ == '__main__':
             PM25.set(values['pm_2u5'])
             PM10.set(values['pm_10u'])
             PM1_HIST.observe(values['pm_1u'])
-            PM25_HIST.observe(values['pm_2u5'] - values['pm_1u'])
-            PM10_HIST.observe(values['pm_10u'] - values['pm_2u5'])
+            PM25_HIST.observe(values['pm_2u5'])
+            PM10_HIST.observe(values['pm_10u'])
 
         logging.debug('Sensor data: %s', collect_all_data())
         update_end = rate_limiter.iteration_end()
