@@ -152,6 +152,57 @@ def collect_all_data():
         'pm10': PM10.collect()[0].samples[0].value
     }
 
+class LoopRateLimiter:
+    """Class maintaining defined average duration of iterations inside a loop."""
+
+    def __init__(self, period):
+        self._period = period
+        self._time_ref = self.now()  # initialized reference time, start of first iteration
+        self._sleep_time = 0
+
+    def now(self):
+        """Current monothionic time. Might be used for calculating duration, e.g. against return value of iteration_end()."""
+        return time.perf_counter()
+
+    def iteration_end(self):
+        """Called when iteration is finished. Returns end time."""
+        time_ref = self._time_ref + self._period  # get ideal time where we should be at the end of iteration
+        time_real = self.now()  # real time at the end of iteration (active part)
+        self._sleep_time = time_ref - time_real  # how much we need to sleep to compensate between reference and real time
+        self._time_ref = max(time_ref, time_real - 100 * self._period)  # limit max lag behind real time (if processing is too long) => faster recovery
+        return time_real
+
+    def sleep(self):
+        """Sleep to compensate iteration duration as calculated in iteration_end()."""
+        if self._sleep_time > 0:
+            time.sleep(self._sleep_time)
+
+    def end_sleep(self):
+        """Mark iteration end and sleep."""
+        self.iteration_end()
+        self.sleep()
+
+class NoLoopRateLimiter:
+    """Implementation with no rate limiting."""
+
+    def now(self):
+        return time.perf_counter()
+
+    def iteration_end(self):
+        return self.now()
+
+    def sleep(self):
+        pass
+
+    def end_sleep(self):
+        pass
+
+def create_loop_rate_limiter(period):
+    if period > 0:
+        return LoopRateLimiter(period)
+    else:
+        return NoLoopRateLimiter()
+
 def post_loop_to_influxdb(influxdb_api, time_between_posts, bucket, sensor_location):
     """Post all sensor data to InfluxDB"""
     while True:
@@ -240,6 +291,8 @@ if __name__ == '__main__':
         help="Post sensor data to InfluxDB")
     parser.add_argument("-l", "--luftdaten", metavar='LUFTDATEN', type=str_to_bool, default='false',
         help="Post sensor data to Luftdaten")
+    parser.add_argument("--update-period", metavar='PERIOD_SECONDS', type=float, default=5,
+        help="Limit update rate of sensor values to defined period in seconds.")
     parser.add_argument("-d", "--debug", metavar='DEBUG', type=str_to_bool, default='false',
         help="Turns on more verbose logging, showing sensor output and post responses")
     args = parser.parse_args()
@@ -285,6 +338,11 @@ if __name__ == '__main__':
     start_http_server(addr=args.bind, port=args.port)
 
     logging.info("Starting sensor reading loop. Press Ctrl+C to exit!")
+
+    # TODO Enabled rate limiting is causing that values reported by Prometheus HTTP server or posted to Luftdaten/InfluxDB are older.
+    #   In worst case by update_time + update_period, instead of just update_time when loop is running at max speed.
+    #   Investigate reading sensor values on demand after http Prometheus request and/or posting right when sensor values are acquired.
+    rate_limiter = create_loop_rate_limiter(args.update_period)
     while True:
         update_weather_sensor(args.temperature_factor)
         update_light_sensor()
@@ -292,3 +350,4 @@ if __name__ == '__main__':
             update_gas_sensor()
             update_particulate_sensor()
         logging.debug('Sensor data: %s', collect_all_data())
+        rate_limiter.end_sleep()
