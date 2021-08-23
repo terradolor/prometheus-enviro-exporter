@@ -69,17 +69,20 @@ def update_weather_sensor(temperature_factor):
         pressure = bme280.pressure
         humidity = bme280.humidity
 
-        # Tuning factor for compensation. Decrease this number to adjust the
-        # temperature down, and increase to adjust up
-        # Tuning factor for temperature compensation.
-        # Value should be >0, typically >> 1. Higher values reduce strength of correction (so you typically observe higher temperature value)
+        # Tuning factor for compensation of heat transfer from the CPU. Value should be <0,1).
+        # - When 0 means no correction (CPU is not affecting measured value)
+        # - When 1 (resp. approaching to 1) means that all heat is transferred to sensor and CPU temperature is measured
+        #   (with the theoretical value of 1 we are just measuring CPU temperature and we can't calculate back original ambient temperature)
         if temperature_factor:
             # Smooth out with some averaging to decrease jitter
             # TODO since CPU temperature is refreshed with lower frequency then this has little effect => use e.g. some long-term EWMA
             cpu_temps = [get_cpu_temperature() for _ in range(5)]
             avg_cpu_temp = sum(cpu_temps) / float(len(cpu_temps))
 
-            temperature = temperature - ((avg_cpu_temp - temperature) / temperature_factor)
+            # Heat transfer from CPU should be proportional to the difference of ambient vs CPU temperature.
+            # i.e.: T_measured = T_ambient + (T_cpu - T_ambient) * factor
+            # so ambient temperature is calculated from measured value using ...
+            temperature = (temperature - avg_cpu_temp * temperature_factor) / (1 - temperature_factor)
 
         TEMPERATURE.set(temperature)
         PRESSURE.set(pressure * 100)  # hPa to Pa
@@ -231,7 +234,8 @@ if __name__ == '__main__':
     parser.add_argument("-e", "--enviro", metavar='ENVIRO', type=str_to_bool, default='false',
         help="Device is an Enviro (not Enviro+) so don't fetch data from gas and particulate sensors as they don't exist")
     parser.add_argument("-f", "--temperature-factor", metavar='FACTOR', type=float,
-        help="The compensation factor to get better temperature results when the Enviro+ pHAT is too close to the Raspberry Pi board")
+        help="The compensation factor to get better temperature results when the Enviro+ is too close to the Raspberry Pi board. " +
+        "Value should be from 0 (no correction) to almost 1 (max heat transfer from CPU and max correction).")
     parser.add_argument("-i", "--influxdb", metavar='INFLUXDB', type=str_to_bool, default='false',
         help="Post sensor data to InfluxDB")
     parser.add_argument("-l", "--luftdaten", metavar='LUFTDATEN', type=str_to_bool, default='false',
