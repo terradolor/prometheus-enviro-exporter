@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import os
-import requests
 import time
 import logging
 import argparse
@@ -163,7 +162,7 @@ def collect_all_data():
         'pm10': PM10.collect()[0].samples[0].value
     }
 
-def post_to_influxdb(influxdb_api, time_between_posts, bucket, sensor_location):
+def post_loop_to_influxdb(influxdb_api, time_between_posts, bucket, sensor_location):
     """Post all sensor data to InfluxDB"""
     while True:
         time.sleep(time_between_posts)
@@ -178,12 +177,14 @@ def post_to_influxdb(influxdb_api, time_between_posts, bucket, sensor_location):
         except Exception as exception:
             logging.warning('Exception sending to InfluxDB: {}'.format(exception))
 
-def post_to_luftdaten(sensor_uid, time_between_posts):
+def post_loop_to_luftdaten(sensor_uid, time_between_posts):
     """
     Post relevant sensor data to luftdaten.info
 
     Code from: https://github.com/sepulworld/balena-environ-plus
     """
+    import requests
+
     def post_pin_values(pin, values):
         return requests.post('https://api.luftdaten.info/v1/push-sensor-data/',
             json={
@@ -272,7 +273,7 @@ if __name__ == '__main__':
             org=os.getenv('INFLUXDB_ORG_ID', '')
         )
         influxdb_api = influxdb_client.write_api(write_options=SYNCHRONOUS)
-        influx_thread = Thread(target=post_to_influxdb, args=(
+        influx_thread = Thread(target=post_loop_to_influxdb, args=(
             influxdb_api,
             int(os.getenv('INFLUXDB_TIME_BETWEEN_POSTS', '5')),
             os.getenv('INFLUXDB_BUCKET', ''),
@@ -284,7 +285,7 @@ if __name__ == '__main__':
         LUFTDATEN_TIME_BETWEEN_POSTS = int(os.getenv('LUFTDATEN_TIME_BETWEEN_POSTS', '30'))
         LUFTDATEN_SENSOR_UID = 'raspi-' + get_serial_number()
         logging.info("Sensor data will be posted to Luftdaten every {} seconds for the UID {}".format(LUFTDATEN_TIME_BETWEEN_POSTS, LUFTDATEN_SENSOR_UID))
-        luftdaten_thread = Thread(target=post_to_luftdaten, args=(LUFTDATEN_SENSOR_UID, LUFTDATEN_TIME_BETWEEN_POSTS))
+        luftdaten_thread = Thread(target=post_loop_to_luftdaten, args=(LUFTDATEN_SENSOR_UID, LUFTDATEN_TIME_BETWEEN_POSTS))
         luftdaten_thread.start()
 
     logging.info("Listening on http://{}:{}".format(args.bind, args.port))
