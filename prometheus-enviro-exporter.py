@@ -3,6 +3,7 @@ import os
 import time
 import logging
 import argparse
+import functools
 import subprocess
 from threading import Thread
 
@@ -89,10 +90,11 @@ def update_weather_sensor(temperature_factor):
         TEMPERATURE.set(temperature)
         PRESSURE.set(pressure * 100)  # hPa to Pa
         HUMIDITY.set(humidity / 100)  # percentage to 0-1 ratio
+        return True
     except IOError:
         logging.error("Could not get BME280 readings. Resetting i2c.")
-        ERROR_COUNTER.inc()
         reset_i2c()
+    return False
 
 def update_light_sensor():
     """Update all light sensor readings"""
@@ -102,10 +104,11 @@ def update_light_sensor():
         proximity = ltr559.get_proximity(passive=True)
         LIGHT.set(light)
         PROXIMITY.set(proximity)
+        return True
     except IOError:
         logging.error("Could not get light and proximity readings. Resetting i2c.")
-        ERROR_COUNTER.inc()
         reset_i2c()
+    return False
 
 def update_gas_sensor():
     """Update all gas sensor readings"""
@@ -117,10 +120,11 @@ def update_gas_sensor():
         GAS_OX_HIST.observe(readings.oxidising)
         GAS_NH3.set(readings.nh3)
         GAS_NH3_HIST.observe(readings.nh3)
+        return True
     except IOError:
         logging.error("Could not get gas readings. Resetting i2c.")
-        ERROR_COUNTER.inc()
         reset_i2c()
+    return False
 
 def update_particulate_sensor():
     """Update the particulate matter sensor readings"""
@@ -135,13 +139,13 @@ def update_particulate_sensor():
         PM1_HIST.observe(pm010)
         PM25_HIST.observe(pm025 - pm010)
         PM10_HIST.observe(pm100 - pm025)
+        return True
     except pmsReadTimeoutError:
         logging.error("Failed to read PMS5003")
-        ERROR_COUNTER.inc()
     except IOError:
         logging.error("Could not get particulate matter readings. Resetting i2c.")
-        ERROR_COUNTER.inc()
         reset_i2c()
+    return False
 
 def collect_all_data():
     """Collects all the data currently set"""
@@ -223,7 +227,6 @@ def post_loop_to_influxdb(influxdb_api, time_between_posts, bucket, sensor_locat
             logging.debug('InfluxDB response: OK')
         except Exception as exception:
             logging.error('Exception sending to InfluxDB: {}'.format(exception))
-            ERROR_COUNTER.inc()
 
 def post_loop_to_luftdaten(sensor_uid, time_between_posts):
     """
@@ -265,10 +268,8 @@ def post_loop_to_luftdaten(sensor_uid, time_between_posts):
                 logging.debug('Luftdaten response: OK')
             else:
                 logging.error('Luftdaten response: Failed')
-                ERROR_COUNTER.inc()
         except Exception as exception:
             logging.error('Exception sending to Luftdaten: {}'.format(exception))
-            ERROR_COUNTER.inc()
 
 def get_serial_number():
     """Get Raspberry Pi serial number to use as LUFTDATEN_SENSOR_UID"""
@@ -349,17 +350,22 @@ if __name__ == '__main__':
 
     logging.info("Starting sensor reading loop. Press Ctrl+C to exit!")
 
+    sensor_update_functions = [
+        functools.partial(update_weather_sensor, args.temperature_factor),
+        update_light_sensor
+    ]
+    if not args.enviro:
+        sensor_update_functions.append(update_gas_sensor)
+        sensor_update_functions.append(update_particulate_sensor)
+
     # TODO Enabled rate limiting is causing that values reported by Prometheus HTTP server or posted to Luftdaten/InfluxDB are older.
     #   In worst case by update_time + update_period, instead of just update_time when loop is running at max speed.
     #   Investigate reading sensor values on demand after http Prometheus request and/or posting right when sensor values are acquired.
     rate_limiter = create_loop_rate_limiter(args.update_period)
     while True:
         update_start = rate_limiter.now()
-        update_weather_sensor(args.temperature_factor)
-        update_light_sensor()
-        if not args.enviro:
-            update_gas_sensor()
-            update_particulate_sensor()
+        if not all(update_fn() for update_fn in sensor_update_functions):  # update all sensor values and collect error status of this iteration
+            ERROR_COUNTER.inc()
         logging.debug('Sensor data: %s', collect_all_data())
         update_end = rate_limiter.iteration_end()
         LOOP_UPDATE_TIME.inc(update_end - update_start)
