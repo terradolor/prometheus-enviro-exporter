@@ -31,12 +31,6 @@ logging.basicConfig(
               logging.StreamHandler()],
     datefmt='%Y-%m-%d %H:%M:%S')
 
-logging.info("""enviroplus_exporter.py - Expose readings from the Pimoroni Enviro or Enviro+ sensor in Prometheus format
-
-Press Ctrl+C to exit!
-
-""")
-
 bus = SMBus(1)
 bme280 = BME280(i2c_dev=bus)
 pms5003 = PMS5003()
@@ -233,7 +227,7 @@ def str_to_bool(value):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Expose readings from the Pimoroni Enviro or Enviro+ sensor in Prometheus format")
     parser.add_argument("-b", "--bind", metavar='ADDRESS', default='0.0.0.0',
         help="Specify alternate bind address [default: 0.0.0.0]")
     parser.add_argument("-p", "--port", metavar='PORT', default=8000, type=int,
@@ -249,9 +243,6 @@ if __name__ == '__main__':
     parser.add_argument("-l", "--luftdaten", metavar='LUFTDATEN', type=str_to_bool, default='false',
         help="Post sensor data to Luftdaten [default: false]")
     args = parser.parse_args()
-
-    # Start up the server to expose the metrics.
-    start_http_server(addr=args.bind, port=args.port)
 
     if args.debug or os.getenv('DEBUG', 'false') == 'true':
         logging.getLogger().setLevel(logging.DEBUG)
@@ -285,7 +276,9 @@ if __name__ == '__main__':
         luftdaten_thread.start()
 
     logging.info("Listening on http://{}:{}".format(args.bind, args.port))
+    start_http_server(addr=args.bind, port=args.port)
 
+    logging.info("Starting sensor reading loop. Press Ctrl+C to exit!")
     while True:
         update_weather_sensor(args.temperature_factor)
         update_light_sensor()
