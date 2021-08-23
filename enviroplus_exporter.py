@@ -13,10 +13,6 @@ from bme280 import BME280
 from enviroplus import gas
 from pms5003 import PMS5003, ReadTimeoutError as pmsReadTimeoutError
 
-from influxdb_client import InfluxDBClient, Point
-from influxdb_client.client.write_api import SYNCHRONOUS
-
-
 try:
     from smbus2 import SMBus
 except ImportError:
@@ -67,19 +63,6 @@ PM1_HIST = Histogram('enviro_pm_1u_hist', 'Histogram of Particulate Matter of di
 PM25_HIST = Histogram('enviro_pm_2u5_hist', 'Histogram of Particulate Matter of diameter less than 2.5 microns', buckets=tuple(range(5, 100 + 1, 5)))
 PM10_HIST = Histogram('enviro_pm_10u_hist', 'Histogram of Particulate Matter of diameter less than 10 microns', buckets=tuple(range(5, 100 + 1, 5)))
 
-# Setup InfluxDB
-# You can generate an InfluxDB Token from the Tokens Tab in the InfluxDB Cloud UI
-INFLUXDB_URL = os.getenv('INFLUXDB_URL', '')
-INFLUXDB_TOKEN = os.getenv('INFLUXDB_TOKEN', '')
-INFLUXDB_ORG_ID = os.getenv('INFLUXDB_ORG_ID', '')
-INFLUXDB_BUCKET = os.getenv('INFLUXDB_BUCKET', '')
-INFLUXDB_SENSOR_LOCATION = os.getenv('INFLUXDB_SENSOR_LOCATION', 'Adelaide')
-INFLUXDB_TIME_BETWEEN_POSTS = int(os.getenv('INFLUXDB_TIME_BETWEEN_POSTS', '5'))
-influxdb_client = InfluxDBClient(url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG_ID)
-influxdb_api = influxdb_client.write_api(write_options=SYNCHRONOUS)
-
-# Setup Luftdaten
-LUFTDATEN_TIME_BETWEEN_POSTS = int(os.getenv('LUFTDATEN_TIME_BETWEEN_POSTS', '30'))
 
 # Sometimes the sensors can't be read. Resetting the i2c
 def reset_i2c():
@@ -180,19 +163,16 @@ def collect_all_data():
         'pm10': PM10.collect()[0].samples[0].value
     }
 
-def post_to_influxdb():
+def post_to_influxdb(influxdb_api, time_between_posts, bucket, sensor_location):
     """Post all sensor data to InfluxDB"""
-    name = 'enviroplus'
-    tag = ['location', 'adelaide']
     while True:
-        time.sleep(INFLUXDB_TIME_BETWEEN_POSTS)
-        data_points = []
-        epoch_time_now = round(time.time())
-        sensor_data = collect_all_data()
-        for field_name in sensor_data:
-            data_points.append(Point('enviroplus').tag('location', INFLUXDB_SENSOR_LOCATION).field(field_name, sensor_data[field_name]))
+        time.sleep(time_between_posts)
+        data_points = [
+            Point('enviroplus').tag('location', sensor_location).field(name, value)
+                for name, value in collect_all_data().items()
+        ]
         try:
-            influxdb_api.write(bucket=INFLUXDB_BUCKET, record=data_points)
+            influxdb_api.write(bucket=bucket, record=data_points)
             if DEBUG:
                 logging.info('InfluxDB response: OK')
         except Exception as exception:
@@ -275,7 +255,6 @@ if __name__ == '__main__':
 
     # Start up the server to expose the metrics.
     start_http_server(addr=args.bind, port=args.port)
-    # Generate some requests.
 
     if args.debug:
         DEBUG = True
@@ -284,13 +263,25 @@ if __name__ == '__main__':
         logging.info("Using compensating (factor={}) to account for heat leakage from Raspberry Pi CPU".format(args.temperature_factor))
 
     if args.influxdb:
-        # Post to InfluxDB in another thread
-        logging.info("Sensor data will be posted to InfluxDB every {} seconds".format(INFLUXDB_TIME_BETWEEN_POSTS))
-        influx_thread = Thread(target=post_to_influxdb)
+        logging.info("Starting InfluxDB client and posting loop")
+        from influxdb_client import InfluxDBClient, Point
+        from influxdb_client.client.write_api import SYNCHRONOUS
+        influxdb_client = InfluxDBClient(
+            url=os.getenv('INFLUXDB_URL', ''),
+            token=os.getenv('INFLUXDB_TOKEN', ''),  # You can generate an InfluxDB Token from the Tokens Tab in the InfluxDB Cloud UI
+            org=os.getenv('INFLUXDB_ORG_ID', '')
+        )
+        influxdb_api = influxdb_client.write_api(write_options=SYNCHRONOUS)
+        influx_thread = Thread(target=post_to_influxdb, args=(
+            influxdb_api,
+            int(os.getenv('INFLUXDB_TIME_BETWEEN_POSTS', '5')),
+            os.getenv('INFLUXDB_BUCKET', ''),
+            os.getenv('INFLUXDB_SENSOR_LOCATION', 'Adelaide')
+        ))
         influx_thread.start()
 
     if args.luftdaten:
-        # Post to Luftdaten in another thread
+        LUFTDATEN_TIME_BETWEEN_POSTS = int(os.getenv('LUFTDATEN_TIME_BETWEEN_POSTS', '30'))
         LUFTDATEN_SENSOR_UID = 'raspi-' + get_serial_number()
         logging.info("Sensor data will be posted to Luftdaten every {} seconds for the UID {}".format(LUFTDATEN_TIME_BETWEEN_POSTS, LUFTDATEN_SENSOR_UID))
         luftdaten_thread = Thread(target=post_to_luftdaten, args=(LUFTDATEN_SENSOR_UID, LUFTDATEN_TIME_BETWEEN_POSTS))
