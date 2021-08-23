@@ -71,12 +71,14 @@ def update_weather_sensor(temperature_factor):
 
         # Tuning factor for compensation. Decrease this number to adjust the
         # temperature down, and increase to adjust up
+        # Tuning factor for temperature compensation.
+        # Value should be >0, typically >> 1. Higher values reduce strength of correction (so you typically observe higher temperature value)
         if temperature_factor:
-            cpu_temps = [get_cpu_temperature()] * 5
-            cpu_temp = get_cpu_temperature()
             # Smooth out with some averaging to decrease jitter
-            cpu_temps = cpu_temps[1:] + [cpu_temp]
+            # TODO since CPU temperature is refreshed with lower frequency then this has little effect => use e.g. some long-term EWMA
+            cpu_temps = [get_cpu_temperature() for _ in range(5)]
             avg_cpu_temp = sum(cpu_temps) / float(len(cpu_temps))
+
             temperature = temperature - ((avg_cpu_temp - temperature) / temperature_factor)
 
         TEMPERATURE.set(temperature)
