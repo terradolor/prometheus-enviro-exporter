@@ -220,21 +220,22 @@ def str_to_bool(value):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Expose readings from the Pimoroni Enviro or Enviro+ sensor in Prometheus format")
+    parser = argparse.ArgumentParser(description="Expose readings from the Pimoroni Enviro or Enviro+ sensor in Prometheus format",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-b", "--bind", metavar='ADDRESS', default='0.0.0.0',
-        help="Specify alternate bind address [default: 0.0.0.0]")
+        help="Specify alternate bind address")
     parser.add_argument("-p", "--port", metavar='PORT', default=8000, type=int,
-        help="Specify alternate port [default: 8000]")
+        help="Specify alternate port")
+    parser.add_argument("-e", "--enviro", metavar='ENVIRO', type=str_to_bool, default='false',
+        help="Device is an Enviro (not Enviro+) so don't fetch data from gas and particulate sensors as they don't exist")
     parser.add_argument("-f", "--temperature-factor", metavar='FACTOR', type=float,
         help="The compensation factor to get better temperature results when the Enviro+ pHAT is too close to the Raspberry Pi board")
-    parser.add_argument("-e", "--enviro", metavar='ENVIRO', type=str_to_bool,
-        help="Device is an Enviro (not Enviro+) so don't fetch data from gas and particulate sensors as they don't exist")
-    parser.add_argument("-d", "--debug", metavar='DEBUG', type=str_to_bool,
-        help="Turns on more verbose logging, showing sensor output and post responses [default: false]")
     parser.add_argument("-i", "--influxdb", metavar='INFLUXDB', type=str_to_bool, default='false',
-        help="Post sensor data to InfluxDB [default: false]")
+        help="Post sensor data to InfluxDB")
     parser.add_argument("-l", "--luftdaten", metavar='LUFTDATEN', type=str_to_bool, default='false',
-        help="Post sensor data to Luftdaten [default: false]")
+        help="Post sensor data to Luftdaten")
+    parser.add_argument("-d", "--debug", metavar='DEBUG', type=str_to_bool, default='false',
+        help="Turns on more verbose logging, showing sensor output and post responses")
     args = parser.parse_args()
 
     logging.basicConfig(
