@@ -68,7 +68,7 @@ We're going to run the exporter as the user `enviro` in the directory `/home/env
     ```
 
     * Status should be reporting no errors or failures
-    * Also exported values are available in HTTP browser after specifying address `http://<RPI_IP_address>:8000/metrics`
+    * Also exported values are available in HTTP browser after specifying address `http://<RPI_IP_address>:9848/metrics`
 
 ## External Components
 
@@ -99,7 +99,7 @@ scrape_configs:
     - targets: ['localhost:9100']
   - job_name: enviro
     static_configs:
-    - targets: ['<RPI_IP_address>:8000']
+    - targets: ['<RPI_IP_address>:9848']
 ```
 
 Note: List RPI IP address by calling `ip addr show`. Or use a domain name instead of an IP if you have one. Or simply use `localhost` if server is running on the same machine as the exporter.
@@ -120,7 +120,7 @@ Visualization of Enviro exporter values from Prometheus server DB:
 There is a Dockerfile available if you'd like to run as a docker container.
 
 1. Build: `docker build -t prometheus-enviro-exporter .`
-2. Run: `docker run -d prometheus-enviro-exporter -d -p 8000:8000 --device=/dev/i2c-1 --device=/dev/gpiomem --device=/dev/ttyAMA0 prometheus-enviro-exporter`
+2. Run: `docker run -d prometheus-enviro-exporter -d -p 9848:9848 --device=/dev/i2c-1 --device=/dev/gpiomem --device=/dev/ttyAMA0 prometheus-enviro-exporter`
 
 ## Acknowledgements
 

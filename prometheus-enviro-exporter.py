@@ -290,7 +290,7 @@ if __name__ == '__main__':
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-b", "--bind", metavar='ADDRESS', default='0.0.0.0',
         help="Specify alternate bind address")
-    parser.add_argument("-p", "--port", metavar='PORT', default=8000, type=int,
+    parser.add_argument("-p", "--port", metavar='PORT', default=9848, type=int,
         help="Specify alternate port")
     parser.add_argument("-e", "--enviro", metavar='ENVIRO', type=str_to_bool, default='false',
         help="Device is an Enviro (not Enviro+) so don't fetch data from gas and PM sensors as they don't exist")

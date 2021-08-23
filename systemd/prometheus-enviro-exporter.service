@@ -1,5 +1,5 @@
 [Unit]
-Description=Prometheus exporter for Pimoroni Enviro boards
+Description=Prometheus exporter for Pimoroni Enviro environmental monitoring boards
 Documentation=https://github.com/terradolor/prometheus-enviro-exporter
 After=network.target
 
@@ -7,7 +7,7 @@ After=network.target
 User=enviro
 Group=enviro
 WorkingDirectory=/home/enviro/prometheus-enviro-exporter
-ExecStart=python3 /home/enviro/prometheus-enviro-exporter/prometheus-enviro-exporter.py --bind=0.0.0.0 --port=8000
+ExecStart=python3 /home/enviro/prometheus-enviro-exporter/prometheus-enviro-exporter.py --bind=0.0.0.0
 ExecReload=/bin/kill -HUP $MAINPID
 
 [Install]
