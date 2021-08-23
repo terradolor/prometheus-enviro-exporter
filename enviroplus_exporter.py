@@ -37,8 +37,6 @@ Press Ctrl+C to exit!
 
 """)
 
-DEBUG = os.getenv('DEBUG', 'false') == 'true'
-
 bus = SMBus(1)
 bme280 = BME280(i2c_dev=bus)
 pms5003 = PMS5003()
@@ -141,7 +139,7 @@ def update_particulate_sensor():
         PM25_HIST.observe(pm025 - pm010)
         PM10_HIST.observe(pm100 - pm025)
     except pmsReadTimeoutError:
-        logging.warning("Failed to read PMS5003")
+        logging.error("Failed to read PMS5003")
     except IOError:
         logging.error("Could not get particulate matter readings. Resetting i2c.")
         reset_i2c()
@@ -172,10 +170,9 @@ def post_loop_to_influxdb(influxdb_api, time_between_posts, bucket, sensor_locat
         ]
         try:
             influxdb_api.write(bucket=bucket, record=data_points)
-            if DEBUG:
-                logging.info('InfluxDB response: OK')
+            logging.debug('InfluxDB response: OK')
         except Exception as exception:
-            logging.warning('Exception sending to InfluxDB: {}'.format(exception))
+            logging.error('Exception sending to InfluxDB: {}'.format(exception))
 
 def post_loop_to_luftdaten(sensor_uid, time_between_posts):
     """
@@ -214,12 +211,11 @@ def post_loop_to_luftdaten(sensor_uid, time_between_posts):
             })
 
             if response_pin_1.ok and response_pin_11.ok:
-                if DEBUG:
-                    logging.info('Luftdaten response: OK')
+                logging.debug('Luftdaten response: OK')
             else:
-                logging.warning('Luftdaten response: Failed')
+                logging.error('Luftdaten response: Failed')
         except Exception as exception:
-            logging.warning('Exception sending to Luftdaten: {}'.format(exception))
+            logging.error('Exception sending to Luftdaten: {}'.format(exception))
 
 def get_serial_number():
     """Get Raspberry Pi serial number to use as LUFTDATEN_SENSOR_UID"""
@@ -257,8 +253,8 @@ if __name__ == '__main__':
     # Start up the server to expose the metrics.
     start_http_server(addr=args.bind, port=args.port)
 
-    if args.debug:
-        DEBUG = True
+    if args.debug or os.getenv('DEBUG', 'false') == 'true':
+        logging.getLogger().setLevel(logging.DEBUG)
 
     if args.temperature_factor:
         logging.info("Using compensating (factor={}) to account for heat leakage from Raspberry Pi CPU".format(args.temperature_factor))
@@ -296,5 +292,4 @@ if __name__ == '__main__':
         if not args.enviro:
             update_gas_sensor()
             update_particulate_sensor()
-        if DEBUG:
-            logging.info('Sensor data: {}'.format(collect_all_data()))
+        logging.debug('Sensor data: %s', collect_all_data())
