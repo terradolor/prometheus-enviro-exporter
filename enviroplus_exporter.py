@@ -48,6 +48,7 @@ PM25_HIST = Histogram('enviro_pm_2u5_hist', 'Histogram of Particulate Matter of 
 PM10_HIST = Histogram('enviro_pm_10u_hist', 'Histogram of Particulate Matter of diameter less than 10 microns', buckets=tuple(range(5, 100 + 1, 5)))
 
 LOOP_UPDATE_TIME = Counter('enviro_update_time_seconds', 'Cumulative time spent in sensor values update.')
+ERROR_COUNTER = Counter('enviro_errors', 'Counter of processing errors. E.g. failed sensor value updates.')
 
 # Sometimes the sensors can't be read. Resetting the i2c
 def reset_i2c():
@@ -90,6 +91,7 @@ def update_weather_sensor(temperature_factor):
         HUMIDITY.set(humidity / 100)  # percentage to 0-1 ratio
     except IOError:
         logging.error("Could not get BME280 readings. Resetting i2c.")
+        ERROR_COUNTER.inc()
         reset_i2c()
 
 def update_light_sensor():
@@ -102,6 +104,7 @@ def update_light_sensor():
         PROXIMITY.set(proximity)
     except IOError:
         logging.error("Could not get light and proximity readings. Resetting i2c.")
+        ERROR_COUNTER.inc()
         reset_i2c()
 
 def update_gas_sensor():
@@ -116,6 +119,7 @@ def update_gas_sensor():
         GAS_NH3_HIST.observe(readings.nh3)
     except IOError:
         logging.error("Could not get gas readings. Resetting i2c.")
+        ERROR_COUNTER.inc()
         reset_i2c()
 
 def update_particulate_sensor():
@@ -133,8 +137,10 @@ def update_particulate_sensor():
         PM10_HIST.observe(pm100 - pm025)
     except pmsReadTimeoutError:
         logging.error("Failed to read PMS5003")
+        ERROR_COUNTER.inc()
     except IOError:
         logging.error("Could not get particulate matter readings. Resetting i2c.")
+        ERROR_COUNTER.inc()
         reset_i2c()
 
 def collect_all_data():
@@ -217,6 +223,7 @@ def post_loop_to_influxdb(influxdb_api, time_between_posts, bucket, sensor_locat
             logging.debug('InfluxDB response: OK')
         except Exception as exception:
             logging.error('Exception sending to InfluxDB: {}'.format(exception))
+            ERROR_COUNTER.inc()
 
 def post_loop_to_luftdaten(sensor_uid, time_between_posts):
     """
@@ -258,8 +265,10 @@ def post_loop_to_luftdaten(sensor_uid, time_between_posts):
                 logging.debug('Luftdaten response: OK')
             else:
                 logging.error('Luftdaten response: Failed')
+                ERROR_COUNTER.inc()
         except Exception as exception:
             logging.error('Exception sending to Luftdaten: {}'.format(exception))
+            ERROR_COUNTER.inc()
 
 def get_serial_number():
     """Get Raspberry Pi serial number to use as LUFTDATEN_SENSOR_UID"""
