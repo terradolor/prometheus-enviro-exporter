@@ -60,12 +60,12 @@ PM1 = Gauge('enviro_pm_1u', 'Particulate Matter of diameter less than 1 micron. 
 PM25 = Gauge('enviro_pm_2u5', 'Particulate Matter of diameter less than 2.5 microns. Measured in micrograms per cubic metre (ug/m3)')
 PM10 = Gauge('enviro_pm_10u', 'Particulate Matter of diameter less than 10 microns. Measured in micrograms per cubic metre (ug/m3)')
 
-GAS_RED_HIST = Histogram('enviro_gas_red_hist_ohms', 'Histogram of gas RED measurements', buckets=tuple(range(0, 1_500_000 + 1, 100_000)))
-GAS_OX_HIST = Histogram('enviro_gas_ox_hist_ohms', 'Histogram of gas OX measurements', buckets=tuple(range(0, 100_000 + 1, 5_000)))
-GAS_NH3_HIST = Histogram('enviro_gas_nh3_hist_ohms', 'Histogram of gas NH3 measurements', buckets=tuple(range(0, 2_000_000 + 1, 100_000)))
-PM1_HIST = Histogram('enviro_pm_1u_hist', 'Histogram of Particulate Matter of diameter less than 1 micron', buckets=tuple(range(0, 100 + 1, 5)))
-PM25_HIST = Histogram('enviro_pm_2u5_hist', 'Histogram of Particulate Matter of diameter less than 2.5 microns', buckets=tuple(range(0, 100 + 1, 5)))
-PM10_HIST = Histogram('enviro_pm_10u_hist', 'Histogram of Particulate Matter of diameter less than 10 microns', buckets=tuple(range(0, 100 + 1, 5)))
+GAS_RED_HIST = Histogram('enviro_gas_red_hist_ohms', 'Histogram of gas RED measurements', buckets=tuple(range(100_000, 1_500_000 + 1, 100_000)))
+GAS_OX_HIST = Histogram('enviro_gas_ox_hist_ohms', 'Histogram of gas OX measurements', buckets=tuple(range(5_000, 100_000 + 1, 5_000)))
+GAS_NH3_HIST = Histogram('enviro_gas_nh3_hist_ohms', 'Histogram of gas NH3 measurements', buckets=tuple(range(100_000, 2_000_000 + 1, 100_000)))
+PM1_HIST = Histogram('enviro_pm_1u_hist', 'Histogram of Particulate Matter of diameter less than 1 micron', buckets=tuple(range(5, 100 + 1, 5)))
+PM25_HIST = Histogram('enviro_pm_2u5_hist', 'Histogram of Particulate Matter of diameter less than 2.5 microns', buckets=tuple(range(5, 100 + 1, 5)))
+PM10_HIST = Histogram('enviro_pm_10u_hist', 'Histogram of Particulate Matter of diameter less than 10 microns', buckets=tuple(range(5, 100 + 1, 5)))
 
 # Setup InfluxDB
 # You can generate an InfluxDB Token from the Tokens Tab in the InfluxDB Cloud UI
