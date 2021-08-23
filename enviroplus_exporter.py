@@ -101,104 +101,91 @@ def get_cpu_temperature():
         temp = int(temp) / 1000.0
     return temp
 
-def get_temperature(factor):
-    """Get temperature from the weather sensor"""
-    # Tuning factor for compensation. Decrease this number to adjust the
-    # temperature down, and increase to adjust up
-    raw_temp = bme280.get_temperature()
-
-    if factor:
-        cpu_temps = [get_cpu_temperature()] * 5
-        cpu_temp = get_cpu_temperature()
-        # Smooth out with some averaging to decrease jitter
-        cpu_temps = cpu_temps[1:] + [cpu_temp]
-        avg_cpu_temp = sum(cpu_temps) / float(len(cpu_temps))
-        temperature = raw_temp - ((avg_cpu_temp - raw_temp) / factor)
-    else:
-        temperature = raw_temp
-
-    TEMPERATURE.set(temperature)   # Set to a given value
-
-def get_pressure():
-    """Get pressure from the weather sensor"""
+def update_weather_sensor(temperature_factor):
+    """Update values from the weather sensor"""
     try:
-        pressure = bme280.get_pressure()
+        bme280.update_sensor()  # Note: update once and then read instance properties (avoid multiple updates by individual get_... calls)
+        temperature = bme280.temperature
+        pressure = bme280.pressure
+        humidity = bme280.humidity
+
+        # Tuning factor for compensation. Decrease this number to adjust the
+        # temperature down, and increase to adjust up
+        if temperature_factor:
+            cpu_temps = [get_cpu_temperature()] * 5
+            cpu_temp = get_cpu_temperature()
+            # Smooth out with some averaging to decrease jitter
+            cpu_temps = cpu_temps[1:] + [cpu_temp]
+            avg_cpu_temp = sum(cpu_temps) / float(len(cpu_temps))
+            temperature = temperature - ((avg_cpu_temp - temperature) / temperature_factor)
+
+        TEMPERATURE.set(temperature)
         PRESSURE.set(pressure * 100)  # hPa to Pa
+        HUMIDITY.set(humidity / 100)  # percentage to 0-1 ratio
     except IOError:
-        logging.error("Could not get pressure readings. Resetting i2c.")
+        logging.error("Could not get BME280 readings. Resetting i2c.")
         reset_i2c()
 
-def get_humidity():
-    """Get humidity from the weather sensor"""
+def update_light_sensor():
+    """Update all light sensor readings"""
     try:
-        humidity = bme280.get_humidity()
-        HUMIDITY.set(humidity / 100)
+        ltr559.update_sensor()
+        light = ltr559.get_lux(passive=True)
+        proximity = ltr559.get_proximity(passive=True)
+        LIGHT.set(light)
+        PROXIMITY.set(proximity)
     except IOError:
-        logging.error("Could not get humidity readings. Resetting i2c.")
+        logging.error("Could not get light and proximity readings. Resetting i2c.")
         reset_i2c()
 
-def get_gas():
-    """Get all gas readings"""
+def update_gas_sensor():
+    """Update all gas sensor readings"""
     try:
         readings = gas.read_all()
-
-        GAS_OX.set(readings.oxidising)
-        GAS_OX_HIST.observe(readings.oxidising)
-
         GAS_RED.set(readings.reducing)
         GAS_RED_HIST.observe(readings.reducing)
-
+        GAS_OX.set(readings.oxidising)
+        GAS_OX_HIST.observe(readings.oxidising)
         GAS_NH3.set(readings.nh3)
         GAS_NH3_HIST.observe(readings.nh3)
     except IOError:
         logging.error("Could not get gas readings. Resetting i2c.")
         reset_i2c()
 
-def get_light():
-    """Get all light readings"""
-    try:
-        lux = ltr559.get_lux()
-        prox = ltr559.get_proximity()
-
-        LIGHT.set(lux)
-        PROXIMITY.set(prox)
-    except IOError:
-        logging.error("Could not get lux and proximity readings. Resetting i2c.")
-        reset_i2c()
-
-def get_particulates():
-    """Get the particulate matter readings"""
+def update_particulate_sensor():
+    """Update the particulate matter sensor readings"""
     try:
         pms_data = pms5003.read()
+        pm010 = pms_data.pm_ug_per_m3(1.0)
+        pm025 = pms_data.pm_ug_per_m3(2.5)
+        pm100 = pms_data.pm_ug_per_m3(10)
+        PM1.set(pm010)
+        PM25.set(pm025)
+        PM10.set(pm100)
+        PM1_HIST.observe(pm010)
+        PM25_HIST.observe(pm025 - pm010)
+        PM10_HIST.observe(pm100 - pm025)
     except pmsReadTimeoutError:
         logging.warning("Failed to read PMS5003")
     except IOError:
         logging.error("Could not get particulate matter readings. Resetting i2c.")
         reset_i2c()
-    else:
-        PM1.set(pms_data.pm_ug_per_m3(1.0))
-        PM25.set(pms_data.pm_ug_per_m3(2.5))
-        PM10.set(pms_data.pm_ug_per_m3(10))
-
-        PM1_HIST.observe(pms_data.pm_ug_per_m3(1.0))
-        PM25_HIST.observe(pms_data.pm_ug_per_m3(2.5) - pms_data.pm_ug_per_m3(1.0))
-        PM10_HIST.observe(pms_data.pm_ug_per_m3(10) - pms_data.pm_ug_per_m3(2.5))
 
 def collect_all_data():
     """Collects all the data currently set"""
-    sensor_data = {}
-    sensor_data['temperature'] = TEMPERATURE.collect()[0].samples[0].value
-    sensor_data['humidity'] = HUMIDITY.collect()[0].samples[0].value
-    sensor_data['pressure'] = PRESSURE.collect()[0].samples[0].value
-    sensor_data['light'] = LIGHT.collect()[0].samples[0].value
-    sensor_data['proximity'] = PROXIMITY.collect()[0].samples[0].value
-    sensor_data['gas_ox'] = GAS_OX.collect()[0].samples[0].value
-    sensor_data['gas_red'] = GAS_RED.collect()[0].samples[0].value
-    sensor_data['gas_nh3'] = GAS_NH3.collect()[0].samples[0].value
-    sensor_data['pm1'] = PM1.collect()[0].samples[0].value
-    sensor_data['pm25'] = PM25.collect()[0].samples[0].value
-    sensor_data['pm10'] = PM10.collect()[0].samples[0].value
-    return sensor_data
+    return {
+        'temperature': TEMPERATURE.collect()[0].samples[0].value,
+        'pressure': PRESSURE.collect()[0].samples[0].value,
+        'humidity': HUMIDITY.collect()[0].samples[0].value,
+        'light': LIGHT.collect()[0].samples[0].value,
+        'proximity': PROXIMITY.collect()[0].samples[0].value,
+        'gas_red': GAS_RED.collect()[0].samples[0].value,
+        'gas_ox': GAS_OX.collect()[0].samples[0].value,
+        'gas_nh3': GAS_NH3.collect()[0].samples[0].value,
+        'pm1': PM1.collect()[0].samples[0].value,
+        'pm25': PM25.collect()[0].samples[0].value,
+        'pm10': PM10.collect()[0].samples[0].value
+    }
 
 def post_to_influxdb():
     """Post all sensor data to InfluxDB"""
@@ -281,7 +268,7 @@ if __name__ == '__main__':
         help="Specify alternate bind address [default: 0.0.0.0]")
     parser.add_argument("-p", "--port", metavar='PORT', default=8000, type=int,
         help="Specify alternate port [default: 8000]")
-    parser.add_argument("-f", "--factor", metavar='FACTOR', type=float,
+    parser.add_argument("-f", "--temperature-factor", metavar='FACTOR', type=float,
         help="The compensation factor to get better temperature results when the Enviro+ pHAT is too close to the Raspberry Pi board")
     parser.add_argument("-e", "--enviro", metavar='ENVIRO', type=str_to_bool,
         help="Device is an Enviro (not Enviro+) so don't fetch data from gas and particulate sensors as they don't exist")
@@ -300,8 +287,8 @@ if __name__ == '__main__':
     if args.debug:
         DEBUG = True
 
-    if args.factor:
-        logging.info("Using compensating algorithm (factor={}) to account for heat leakage from Raspberry Pi board".format(args.factor))
+    if args.temperature_factor:
+        logging.info("Using compensating (factor={}) to account for heat leakage from Raspberry Pi CPU".format(args.temperature_factor))
 
     if args.influxdb:
         # Post to InfluxDB in another thread
@@ -319,12 +306,10 @@ if __name__ == '__main__':
     logging.info("Listening on http://{}:{}".format(args.bind, args.port))
 
     while True:
-        get_temperature(args.factor)
-        get_pressure()
-        get_humidity()
-        get_light()
+        update_weather_sensor(args.temperature_factor)
+        update_light_sensor()
         if not args.enviro:
-            get_gas()
-            get_particulates()
+            update_gas_sensor()
+            update_particulate_sensor()
         if DEBUG:
             logging.info('Sensor data: {}'.format(collect_all_data()))
