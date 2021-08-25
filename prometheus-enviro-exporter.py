@@ -4,7 +4,7 @@ import time
 import logging
 import argparse
 from threading import Thread
-from sensors.hw import create_sensors
+from sensors.factory import create_sensors
 # Note: code below contains additional imports called only when feature is enabled
 
 from prometheus_client import start_http_server, Counter, Gauge, Histogram
@@ -233,9 +233,9 @@ if __name__ == '__main__':
     logging.info("Listening on http://{}:{}".format(args.bind, args.port))
     start_http_server(addr=args.bind, port=args.port)
 
-    logging.info("Starting sensor reading loop. Press Ctrl+C to exit!")
+    sensor = create_sensors(args.enviro, args.temperature_factor)
 
-    sensor_update_functions = create_sensors(args.enviro, args.temperature_factor)
+    logging.info("Starting sensor reading loop. Press Ctrl+C to exit!")
 
     # TODO Enabled rate limiting is causing that values reported by Prometheus HTTP server or posted to Luftdaten/InfluxDB are older.
     #   In worst case by update_time + update_period, instead of just update_time when loop is running at max speed.
@@ -245,7 +245,7 @@ if __name__ == '__main__':
         update_start = rate_limiter.now()
 
         values = {}
-        if not all(update_fn(values) for update_fn in sensor_update_functions):  # update all sensor values and collect error status of this iteration
+        if not sensor.update(values):
             ERROR_COUNTER.inc()
 
         # TODO move this block to some Prometheus post function or object

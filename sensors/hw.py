@@ -1,6 +1,7 @@
 import logging
 import subprocess
 import time
+from .core import Sensor
 # Note: code below contains additional imports called only when feature is enabled
 
 def _reset_i2c():
@@ -17,10 +18,11 @@ def _get_cpu_temperature():
     return temp
 
 
-class BME280Sensor:
+class BME280Sensor(Sensor):
     """BME280 temperature, pressure and humidity sensor."""
 
     def __init__(self, temperature_factor):
+        super().__init__()
         self._temperature_factor = temperature_factor
 
         try:
@@ -61,10 +63,11 @@ class BME280Sensor:
             _reset_i2c()
         return False
 
-class LTR559Sensor:
+class LTR559Sensor(Sensor):
     """LTR559 light and proximity sensor."""
 
     def __init__(self):
+        super().__init__()
         try:
             # Transitional fix for breaking change in LTR559
             from ltr559 import LTR559
@@ -84,10 +87,11 @@ class LTR559Sensor:
             _reset_i2c()
         return False
 
-class MICS6814Sensor:
+class MICS6814Sensor(Sensor):
     """MICS6814 gas sensor."""
 
     def __init__(self):
+        super().__init__()
         from enviroplus import gas
         self._gas_sensor = gas
 
@@ -104,10 +108,11 @@ class MICS6814Sensor:
             _reset_i2c()
         return False
 
-class PMS5003Sensor:
+class PMS5003Sensor(Sensor):
     """PMS5003 pariculate matter sensor."""
 
     def __init__(self):
+        super().__init__()
         from pms5003 import PMS5003, ReadTimeoutError as pmsReadTimeoutError
         self._pms5003 = PMS5003()
         self._pms5003_read_timeout_error = pmsReadTimeoutError
@@ -126,14 +131,3 @@ class PMS5003Sensor:
             logging.error("Could not get PMS5003 particulate matter readings. Resetting I2C.")
             _reset_i2c()
         return False
-
-def create_sensors(enviro=False, temperature_factor=None):
-    """Create sensors and return sequence with sensor update functions."""
-    sensor_update_functions = [
-        BME280Sensor(temperature_factor).update,
-        LTR559Sensor().update
-    ]
-    if not enviro:
-        sensor_update_functions.append(MICS6814Sensor().update)
-        sensor_update_functions.append(PMS5003Sensor().update)
-    return sensor_update_functions
