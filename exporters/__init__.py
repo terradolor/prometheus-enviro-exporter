@@ -135,15 +135,32 @@ def _get_serial_number():
             if line[0:6] == 'Serial':
                 return str(line.split(":")[1].strip())
 
-def create_exporters(enviro=False, prometheus_bind_ip="0.0.0.0", prometheus_port=9848, influxdb=False, luftdaten=False):
+def _str_to_bool(value):
+    if value.lower() in {'false', 'f', '0', 'no', 'n'}:
+        return False
+    elif value.lower() in {'true', 't', '1', 'yes', 'y'}:
+        return True
+    raise ValueError('{} is not a valid boolean value'.format(value))
+
+def add_exporter_arguments(parser):
+    parser.add_argument("-b", "--bind", metavar='ADDRESS', default='0.0.0.0', dest='prometheus_ip',
+        help="Specify alternate bind address")
+    parser.add_argument("-p", "--port", metavar='PORT', default=9848, type=int, dest='prometheus_port',
+        help="Specify alternate port")
+    parser.add_argument("-i", "--influxdb", metavar='INFLUXDB', type=_str_to_bool, default='false',
+        help="Post sensor data to InfluxDB")
+    parser.add_argument("-l", "--luftdaten", metavar='LUFTDATEN', type=_str_to_bool, default='false',
+        help="Post sensor data to Luftdaten")
+
+def create_exporters(args, enviro=False, influxdb=False, luftdaten=False):
     """
-    Creates and starts exports.
+    Creates exporters from parsed arguments and starts exports.
 
     Returns:
         Function accepting mapping type with name and value pair of sensor values.
     """
     # TODO replace InfluxDB code with standalone exporter not related to prometheus exporter or metrics
-    if influxdb:
+    if args.influxdb:
         logging.info("Starting InfluxDB client and posting loop")
         from influxdb_client import InfluxDBClient, Point
         from influxdb_client.client.write_api import SYNCHRONOUS
@@ -166,14 +183,14 @@ def create_exporters(enviro=False, prometheus_bind_ip="0.0.0.0", prometheus_port
         influx_thread.start()
 
     # TODO replace Luftdaten code with standalone exporter not related to prometheus exporter or metrics
-    if luftdaten:
+    if args.luftdaten:
         LUFTDATEN_TIME_BETWEEN_POSTS = int(os.getenv('LUFTDATEN_TIME_BETWEEN_POSTS', '30'))
         LUFTDATEN_SENSOR_UID = 'raspi-' + _get_serial_number()
         logging.info("Sensor data will be posted to Luftdaten every {} seconds for the UID {}".format(LUFTDATEN_TIME_BETWEEN_POSTS, LUFTDATEN_SENSOR_UID))
         luftdaten_thread = Thread(target=_post_loop_to_luftdaten, args=(LUFTDATEN_SENSOR_UID, LUFTDATEN_TIME_BETWEEN_POSTS))
         luftdaten_thread.start()
 
-    logging.info("Prometheus exporter listening on http://{}:{}".format(prometheus_bind_ip, prometheus_port))
-    start_http_server(addr=prometheus_bind_ip, port=prometheus_port)
+    logging.info("Prometheus exporter listening on http://{}:{}".format(args.prometheus_ip, args.prometheus_port))
+    start_http_server(addr=args.prometheus_ip, port=args.prometheus_port)
 
     return partial(update_prometheus_metrics, enviro)

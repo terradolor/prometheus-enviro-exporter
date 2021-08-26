@@ -3,8 +3,8 @@ import os
 import time
 import logging
 import argparse
-from sensors.factory import create_sensors
-from exporters import create_exporters, LOOP_UPDATE_TIME
+from sensors.factory import add_sensor_arguments, create_sensors
+from exporters import add_exporter_arguments, create_exporters, LOOP_UPDATE_TIME
 
 class LoopRateLimiter:
     """Class maintaining defined average duration of iterations inside a loop."""
@@ -68,23 +68,14 @@ def str_to_bool(value):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Prometheus exporter for Pimoroni Enviro boards",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("-b", "--bind", metavar='ADDRESS', default='0.0.0.0',
-        help="Specify alternate bind address")
-    parser.add_argument("-p", "--port", metavar='PORT', default=9848, type=int,
-        help="Specify alternate port")
     parser.add_argument("-e", "--enviro", metavar='ENVIRO', type=str_to_bool, default='false',
         help="Device is an Enviro (not Enviro+) so don't fetch data from gas and PM sensors as they don't exist")
-    parser.add_argument("-f", "--temperature-factor", metavar='FACTOR', type=float,
-        help="The compensation factor to get better temperature results when the Enviro+ is too close to the Raspberry Pi board. " +
-        "Value should be from 0 (no correction) to almost 1 (max heat transfer from CPU and max correction).")
-    parser.add_argument("-i", "--influxdb", metavar='INFLUXDB', type=str_to_bool, default='false',
-        help="Post sensor data to InfluxDB")
-    parser.add_argument("-l", "--luftdaten", metavar='LUFTDATEN', type=str_to_bool, default='false',
-        help="Post sensor data to Luftdaten")
     parser.add_argument("--update-period", metavar='PERIOD_SECONDS', type=float, default=5,
         help="Limit update rate of sensor values to defined period in seconds.")
     parser.add_argument("-d", "--debug", metavar='DEBUG', type=str_to_bool, default='false',
         help="Turns on more verbose logging, showing sensor output and post responses")
+    add_sensor_arguments(parser.add_argument_group('Sensors', 'Setup of sensors providing values to exporters'))
+    add_exporter_arguments(parser.add_argument_group('Exporters', 'Setup how sensor values are published'))
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -99,8 +90,8 @@ if __name__ == '__main__':
     if args.temperature_factor:
         logging.info("Using compensating (factor={}) to account for heat leakage from Raspberry Pi CPU".format(args.temperature_factor))
 
-    sensor = create_sensors(args.enviro, args.temperature_factor)
-    exporter_fn = create_exporters(enviro=args.enviro, prometheus_bind_ip=args.bind, prometheus_port=args.port, influxdb=args.influxdb, luftdaten=args.luftdaten)
+    sensor = create_sensors(args, args.enviro)
+    exporter_fn = create_exporters(args, args.enviro)
 
     # TODO Enabled rate limiting is causing that values reported by Prometheus HTTP server or posted to Luftdaten/InfluxDB are older.
     #   In worst case by update_time + update_period, instead of just update_time when loop is running at max speed.
