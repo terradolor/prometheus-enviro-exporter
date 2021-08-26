@@ -10,4 +10,4 @@ RUN pip3 install -r requirements.txt
 
 COPY prometheus-enviro-exporter.py .
 
-CMD python3 prometheus-enviro-exporter.py --bind=0.0.0.0
+CMD python -B prometheus-enviro-exporter.py --bind=0.0.0.0
