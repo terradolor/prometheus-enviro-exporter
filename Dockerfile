@@ -8,6 +8,6 @@ COPY requirements.txt .
 
 RUN pip3 install -r requirements.txt
 
-COPY prometheus-enviro-exporter.py .
+COPY prometheus-enviro-exporter.py exporters sensors .
 
 CMD python -B prometheus-enviro-exporter.py --bind=0.0.0.0
