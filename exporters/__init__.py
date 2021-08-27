@@ -143,21 +143,21 @@ def _str_to_bool(value):
     raise ValueError('{} is not a valid boolean value'.format(value))
 
 def add_exporter_arguments(parser):
-    parser.add_argument("-b", "--bind", metavar='ADDRESS', default='0.0.0.0', dest='prometheus_ip',
-        help="Specify alternate bind address")
-    parser.add_argument("-p", "--port", metavar='PORT', default=9848, type=int, dest='prometheus_port',
-        help="Specify alternate port")
+    parser.add_argument('--prometheus-port', metavar='PORT', default=9848, type=int,
+        help='Port of the Prometheus exporter HTTP server.')
+    parser.add_argument('--prometheus-ip', metavar='IP', default='0.0.0.0',
+        help='IP address where the Prometheus exporter HTTP server should be available. By default bind on all available network interfaces.')
     parser.add_argument("-i", "--influxdb", metavar='INFLUXDB', type=_str_to_bool, default='false',
         help="Post sensor data to InfluxDB")
     parser.add_argument("-l", "--luftdaten", metavar='LUFTDATEN', type=_str_to_bool, default='false',
         help="Post sensor data to Luftdaten")
 
-def create_exporters(args, enviro=False, influxdb=False, luftdaten=False):
+def create_exporters(args, enviro=False):
     """
     Creates exporters from parsed arguments and starts exports.
 
     Returns:
-        Function accepting mapping type with name and value pair of sensor values.
+        Function accepting mapping type with name and value pairs of sensor values.
     """
     # TODO replace InfluxDB code with standalone exporter not related to prometheus exporter or metrics
     if args.influxdb:

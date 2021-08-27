@@ -7,7 +7,7 @@ After=network.target
 User=enviro
 Group=enviro
 WorkingDirectory=/home/enviro/prometheus-enviro-exporter
-ExecStart=python3 -B prometheus-enviro-exporter.py --bind=0.0.0.0
+ExecStart=python3 -B prometheus-enviro-exporter.py --prometheus-ip 0.0.0.0
 ExecReload=/bin/kill -HUP $MAINPID
 
 [Install]
