@@ -29,9 +29,10 @@ But you most likely also need other components not provided by this project, lik
 
 ### Prerequisites
 
-* Python3
+* Python3 with PIP
 * installed system prerequisites of Pimoroni enviroplus-python library, including system reconfiguration
   * follow [pimoroni/enviroplus-python](https://github.com/pimoroni/enviroplus-python/#installing)
+  * or use installation script from this project: `scripts/install_enviro_prerequisites`
 
 Note: exporter is tested with [Raspberry Pi OS](https://www.raspberrypi.org/software/), but as long as you provide access to sensor devices and system dependencies of Python libraries then feel free to use Debian/LXC/LXD/Docker/...
 

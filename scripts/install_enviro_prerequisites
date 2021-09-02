@@ -1,0 +1,25 @@
+#!/bin/bash -e
+# Reconfigure Raspberry Pi OS for Pimoroni Enviro and Enviro+ boards and install required packages
+# Note: there is no backup of modified config files
+# Minimal steps based on: https://github.com/pimoroni/enviroplus-python/tree/a28a817f3bb0825a6da93b6406b7b313c48aacbb#or-install-from-pypi-and-configure-manually
+#
+# Usage:
+# - setup variable below based on used device: Enviro/Enviro+ or Enviro+ with PM
+# - call this script as a root
+# - reboot
+
+# Configuration if PM sensor is connected (default Enviro+ with PM)
+ENVIRO_PM=1
+
+# reconfigure GPIO
+raspi-config nonint do_i2c 0
+raspi-config nonint do_spi 0
+if [ $ENVIRO_PM = 1 ] ; then
+    raspi-config nonint do_serial 1  # do it before enable_uart because otherwise it resets uart back to 0
+    raspi-config nonint set_config_var enable_uart 1 /boot/config.txt
+    grep -qxF 'dtoverlay=pi3-miniuart-bt' /boot/config.txt || echo 'dtoverlay=pi3-miniuart-bt' >> /boot/config.txt
+fi
+
+# install packages
+# Python3 PIP is missing in clean install of Raspberry Pi OS
+apt install python3-pip
