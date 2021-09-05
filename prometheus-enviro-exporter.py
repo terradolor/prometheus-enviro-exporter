@@ -1,5 +1,6 @@
 #!/usr/bin/env -S python3 -B
 import os
+import sys
 import time
 import logging
 import argparse
@@ -84,6 +85,8 @@ if __name__ == '__main__':
         handlers=[logging.FileHandler("prometheus-enviro-exporter.log"), logging.StreamHandler()],
         datefmt='%Y-%m-%d %H:%M:%S'
     )
+    sys.excepthook = lambda *exc_info: logging.exception('Unhandled exception', exc_info=exc_info)  # print unhandled exceptions to log
+
     if args.debug or os.getenv('DEBUG', 'false') == 'true':
         logging.getLogger().setLevel(logging.DEBUG)
 
