@@ -79,38 +79,36 @@ if __name__ == '__main__':
     add_exporter_arguments(parser.add_argument_group('Exporters', 'Setup how sensor values are published'))
     args = parser.parse_args()
 
-    try:  # last-resort error logging (applied after successful (or failing) parsing of cmd-line args)
-        logging.basicConfig(
-            format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s',
-            level=logging.INFO,
-            handlers=[logging.FileHandler("prometheus-enviro-exporter.log"), logging.StreamHandler()],
-            datefmt='%Y-%m-%d %H:%M:%S'
-        )
-        if args.debug or os.getenv('DEBUG', 'false') == 'true':
-            logging.getLogger().setLevel(logging.DEBUG)
+    logging.basicConfig(
+        format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s',
+        level=logging.INFO,
+        handlers=[logging.FileHandler("prometheus-enviro-exporter.log"), logging.StreamHandler()],
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    sys.excepthook = lambda *exc_info: logging.exception('Unhandled exception', exc_info=exc_info)  # print unhandled exceptions to log
 
-        if args.temperature_factor:
-            logging.info("Using compensating (factor={}) to account for heat leakage from Raspberry Pi CPU".format(args.temperature_factor))
+    if args.debug or os.getenv('DEBUG', 'false') == 'true':
+        logging.getLogger().setLevel(logging.DEBUG)
 
-        sensor = create_sensors(args, args.enviro)
-        exporter_fn = create_exporters(args, args.enviro)
+    if args.temperature_factor:
+        logging.info("Using compensating (factor={}) to account for heat leakage from Raspberry Pi CPU".format(args.temperature_factor))
 
-        # TODO Enabled rate limiting is causing that values reported by Prometheus HTTP server or posted to Luftdaten/InfluxDB are older.
-        #   In worst case by update_time + update_period, instead of just update_time when loop is running at max speed.
-        #   Investigate reading sensor values on demand after http Prometheus request and/or posting right when sensor values are acquired.
-        rate_limiter = create_loop_rate_limiter(args.update_period)
-        logging.info('Starting sensor reading loop. Press Ctrl+C to exit!')
-        while True:
-            update_start = rate_limiter.now()
+    sensor = create_sensors(args, args.enviro)
+    exporter_fn = create_exporters(args, args.enviro)
 
-            values = {}
-            sensor_error = not sensor.update(values)
-            exporter_fn(values, sensor_error=sensor_error)
-            logging.debug('Sensor data: %s', values)
+    # TODO Enabled rate limiting is causing that values reported by Prometheus HTTP server or posted to Luftdaten/InfluxDB are older.
+    #   In worst case by update_time + update_period, instead of just update_time when loop is running at max speed.
+    #   Investigate reading sensor values on demand after http Prometheus request and/or posting right when sensor values are acquired.
+    rate_limiter = create_loop_rate_limiter(args.update_period)
+    logging.info('Starting sensor reading loop. Press Ctrl+C to exit!')
+    while True:
+        update_start = rate_limiter.now()
 
-            update_end = rate_limiter.iteration_end()
-            LOOP_UPDATE_TIME.inc(update_end - update_start)  # TODO delegate this hardcoded functionality to exporters; TODO include self-update time
-            rate_limiter.sleep()
-    except:
-        logging.exception('Unhandled exception', exc_info=sys.exc_info())
-        raise
+        values = {}
+        sensor_error = not sensor.update(values)
+        exporter_fn(values, sensor_error=sensor_error)
+        logging.debug('Sensor data: %s', values)
+
+        update_end = rate_limiter.iteration_end()
+        LOOP_UPDATE_TIME.inc(update_end - update_start)  # TODO delegate this hardcoded functionality to exporters; TODO include self-update time
+        rate_limiter.sleep()
