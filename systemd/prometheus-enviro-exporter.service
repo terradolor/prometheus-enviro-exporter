@@ -2,8 +2,6 @@
 Description=Prometheus exporter for Pimoroni Enviro environmental monitoring boards
 Documentation=https://github.com/terradolor/prometheus-enviro-exporter
 After=network.target
-StartLimitIntervalSec=600
-StartLimitBurst=3
 
 [Service]
 User=enviro
