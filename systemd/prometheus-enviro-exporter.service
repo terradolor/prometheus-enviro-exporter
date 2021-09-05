@@ -2,6 +2,8 @@
 Description=Prometheus exporter for Pimoroni Enviro environmental monitoring boards
 Documentation=https://github.com/terradolor/prometheus-enviro-exporter
 After=network.target
+StartLimitIntervalSec=600
+StartLimitBurst=3
 
 [Service]
 User=enviro
@@ -9,6 +11,8 @@ Group=enviro
 WorkingDirectory=/home/enviro/prometheus-enviro-exporter
 ExecStart=python3 -B prometheus-enviro-exporter.py --prometheus-ip 0.0.0.0
 ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=10s
 
 [Install]
 WantedBy=multi-user.target
