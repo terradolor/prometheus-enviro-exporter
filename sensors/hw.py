@@ -127,4 +127,8 @@ class PMS5003Sensor(Sensor):
             return True
         except self._pms5003_read_timeout_error:
             logging.error("Failed to read PMS5003 particulate matter sensor")
+        # Note: other known exceptions:
+        # - pms5003.ChecksumMismatchError: PMS5003 Checksum Mismatch 949 != 16
+        #   - from: "/home/enviro/.local/lib/python3.7/site-packages/pms5003/__init__.py", line 155
+        #   - resolved using application restart
         return False
