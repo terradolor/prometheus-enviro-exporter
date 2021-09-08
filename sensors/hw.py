@@ -127,7 +127,4 @@ class PMS5003Sensor(Sensor):
             return True
         except self._pms5003_read_timeout_error:
             logging.error("Failed to read PMS5003 particulate matter sensor")
-        except IOError:
-            logging.error("Could not get PMS5003 particulate matter readings. Resetting I2C.")
-            _reset_i2c()
         return False
