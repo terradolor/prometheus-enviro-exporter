@@ -14,7 +14,7 @@ Table of Contents
 ## Features
 
 * Reading values from Raspberry Pi [Pimoroni Enviro or Enviro+ (with PM)](https://shop.pimoroni.com/products/enviro) sensor
-  * All sensors are supported except: MEMS microphone, ADS1015 analog to digital converter
+  * All sensors are supported except: MEMS microphone, additional input of ADS1015 analog to digital converter (ADC Enviro+ board pin)
   * Display is not used and free for other applications
 * Exposing values as a Prometheus exporter (creates a HTTP server)
 * Provided systemd service file for easier integration as a system daemon

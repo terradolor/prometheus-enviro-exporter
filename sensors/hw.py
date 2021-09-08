@@ -88,7 +88,7 @@ class LTR559Sensor(Sensor):
         return False
 
 class MICS6814Sensor(Sensor):
-    """MICS6814 gas sensor."""
+    """MICS6814 gas sensor connected through ADS1015 ADC."""
 
     def __init__(self):
         super().__init__()
